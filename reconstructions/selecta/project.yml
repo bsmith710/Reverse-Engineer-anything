@@ -1,0 +1,137 @@
+# XcodeGen spec. On a Mac: `brew install xcodegen && xcodegen generate && open Selecta.xcodeproj`
+# Replace com.example.selecta / group.com.example.selecta with your own identifiers and set DEVELOPMENT_TEAM.
+name: Selecta
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    macOS: "15.0"
+    iOS: "18.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    DEVELOPMENT_TEAM: ""
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  SelectaCore:
+    path: .
+
+targets:
+  SelectaMac:
+    type: application
+    platform: macOS
+    sources: [Apps/macOS, Apps/Shared]
+    dependencies:
+      - package: SelectaCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.selecta
+        PRODUCT_NAME: Selecta
+        ENABLE_HARDENED_RUNTIME: YES
+    info:
+      path: Apps/macOS/Info.plist
+      properties:
+        LSUIElement: true
+        NSAppleEventsUsageDescription: Selecta sends Apple events only when you run an AppleScript action.
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Selecta Action
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Owner
+            LSItemContentTypes: [com.example.selecta.action]
+        UTExportedTypeDeclarations: &actionUTI
+          - UTTypeIdentifier: com.example.selecta.action
+            UTTypeDescription: Selecta Action
+            UTTypeConformsTo: [public.json]
+            UTTypeTagSpecification:
+              public.filename-extension: [selecta]
+    entitlements:
+      path: Apps/macOS/Selecta.entitlements
+      properties:
+        # No com.apple.security.app-sandbox: Accessibility reading, CGEvent posting, shell and
+        # AppleScript actions do not work in the sandbox. Ship with Developer ID + notarization.
+        com.apple.security.automation.apple-events: true
+        com.apple.security.application-groups: [group.com.example.selecta]
+        com.apple.developer.ubiquity-kvstore-identifier: $(TeamIdentifierPrefix)com.example.selecta
+
+  SelectaiOS:
+    type: application
+    platform: iOS
+    sources: [Apps/iOS, Apps/Shared]
+    dependencies:
+      - package: SelectaCore
+      - target: SelectaActionExtension
+      - target: SelectaKeyboard
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.selecta
+        PRODUCT_NAME: Selecta
+        TARGETED_DEVICE_FAMILY: "1,2"
+    info:
+      path: Apps/iOS/Info.plist
+      properties:
+        UILaunchScreen: {}
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Selecta Action
+            LSHandlerRank: Owner
+            LSItemContentTypes: [com.example.selecta.action]
+        UTExportedTypeDeclarations: *actionUTI
+        LSSupportsOpeningDocumentsInPlace: false
+    entitlements:
+      path: Apps/iOS/Selecta.entitlements
+      properties: &iosEntitlements
+        com.apple.security.application-groups: [group.com.example.selecta]
+        com.apple.developer.ubiquity-kvstore-identifier: $(TeamIdentifierPrefix)com.example.selecta
+        keychain-access-groups:
+          [$(AppIdentifierPrefix)com.example.selecta.shared]
+
+  SelectaActionExtension:
+    type: app-extension
+    platform: iOS
+    sources: [Extensions/iOSAction, Apps/Shared/SelectaModel.swift]
+    dependencies:
+      - package: SelectaCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.selecta.action
+        PRODUCT_NAME: SelectaAction
+    info:
+      path: Extensions/iOSAction/Info.plist
+      properties:
+        CFBundleDisplayName: Selecta
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.ui-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ActionViewController
+          NSExtensionAttributes:
+            NSExtensionServiceRoleType: NSExtensionServiceRoleTypeEditor
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+    entitlements:
+      path: Extensions/iOSAction/SelectaAction.entitlements
+      properties: *iosEntitlements
+
+  SelectaKeyboard:
+    type: app-extension
+    platform: iOS
+    sources: [Extensions/iOSKeyboard, Apps/Shared/SelectaModel.swift]
+    dependencies:
+      - package: SelectaCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.selecta.keyboard
+        PRODUCT_NAME: SelectaKeyboard
+    info:
+      path: Extensions/iOSKeyboard/Info.plist
+      properties:
+        CFBundleDisplayName: Selecta
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.keyboard-service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardViewController
+          NSExtensionAttributes:
+            IsASCIICapable: false
+            PrefersRightToLeft: false
+            PrimaryLanguage: mul
+            RequestsOpenAccess: true
+    entitlements:
+      path: Extensions/iOSKeyboard/SelectaKeyboard.entitlements
+      properties: *iosEntitlements
